@@ -1,0 +1,122 @@
+body {
+    font-family: Arial, sans-serif;
+    padding: 10px;
+    background-color: #1a1a1a; /* Darker background color */
+    color: #fff; /* Light text color */
+}
+
+.ticket-block {
+    cursor: pointer;
+    border: 1px solid #ddd;
+    margin-bottom: 10px;
+}
+
+.hidden-info {
+    display: none;
+}
+
+.expanded .hidden-info {
+    display: block;
+}
+h1 {
+    text-align: center;
+    color: #ccc; /* Slightly lighter text color for headings */
+    margin-bottom: 15px;
+}
+
+.ticket-block {
+    border: 1px solid #333;
+    border-radius: 5px;
+    padding: 10px;
+    margin: 8px 0;
+    background-color: #262626; /* Darker block color */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Adjusted shadow for contrast */
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.ticket-block:hover {
+    background-color: #262626; /* Darker block color on hover */
+    transform: scale(1.02);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35); /* Adjusted shadow for contrast on hover */
+    cursor: pointer;
+}
+
+.ticket-block .header {
+    display: flex;
+    justify-content: space-between; /* Align elements to the left and right */
+    align-items: center; /* Vertically align elements */
+}
+
+.ticket-block .date {
+    margin: 0;
+    color: #ccc; /* Adjust the color as needed */
+}
+
+h2 {
+    color: #ccc; 
+    margin-bottom: 5px;
+}
+
+p {
+    color: #ddd; 
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+
+    .ticket-block {
+        padding: 15px;
+    }
+}
+
+.hidden-info {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease;
+}
+
+.ticket-block:hover .hidden-info {
+    max-height: 100%; 
+}
+
+.ticket-block:focus {
+    outline: none;
+}
+
+.buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    padding: 0;
+    border: none;
+    margin-bottom: 10px; 
+}
+
+
+button {
+    flex: 1;
+    padding: 6px;
+    margin-right: 4px;
+    border: none;
+    background-color: #3b3e42; /* Darker button color */
+    color: #fff; /* Light text color for buttons */
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #51565c; /* Lighter button color on hover */
+}
+
+/* For headings */
+h1, h2, h3, h4, h5, h6 {
+    font-size: 14px; /* Adjust the size as needed */
+}
+
+/* For paragraphs */
+p {
+    font-size: 12px; /* Adjust the size as needed */
+}
+
