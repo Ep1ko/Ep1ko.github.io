@@ -63,17 +63,29 @@ async function updateUI() {
 
         let currentBalance = 0;
         listEl.innerHTML = '';
+        transactions.forEach(t => {
+            if (t.type === 'plus') currentBalance += Number(t.amount);
+            else currentBalance -= Number(t.amount);
+
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span class="t-desc">${t.description || 'Без описания'}</span>
+                <span class="t-amount ${t.type === 'plus' ? 'positive' : 'negative'}">
+                    ${t.type === 'plus' ? '+' : '-'}${Number(t.amount).toLocaleString()} ₽
+                </span>
+                <button class="delete-btn" onclick="deleteTransaction('${t.id}')">🗑️</button>
+            `;
+            listEl.appendChild(li);
+        });
+
         let totalDebts = 0;
         creditListEl.innerHTML = '';
         
         // Логика таймера
         let nearestDate = null;
-        const creditsData = [];
-
         credits.forEach(c => {
             if (!c.is_paid) {
                 totalDebts += Number(c.amount);
-                creditsData.push(c);
                 const li = document.createElement('li');
                 li.className = 'credit-item';
                 li.innerHTML = `
@@ -85,6 +97,8 @@ async function updateUI() {
                 `;
                 creditListEl.appendChild(li);
 
+                // Ищем ближайшую дату из тех, что еще не прошли или скоро наступят
+                const currentD = new Date();
                 const targetD = new Date(c.due_date);
                 if (!nearestDate || targetD < nearestDate) {
                     nearestDate = targetD;
@@ -92,11 +106,7 @@ async function updateUI() {
             }
         });
 
-        if (creditsData.length === 0) {
-            creditListEl.innerHTML = '<li class="empty-state">Нет запланированных долгов</li>';
-        }
-
-        // Логика таймера
+        // Обновление таймера
         if (nearestDate) {
             const now = new Date();
             const diff = nearestDate - now;
@@ -105,13 +115,18 @@ async function updateUI() {
             
             if (diff > 0) {
                 warningDiv.style.display = 'block';
-                const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-                const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                timerEl.innerText = `${d}д ${h}ч ${m}м`;
-            } else {
-                warningDiv.style.display = 'none';
-            }
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        } else {
+            warningDiv.style.display = 'none';
+        }
+
+        // Если нужно точное время в часах/минутах, можно усложнить расчет ниже:
+        if (nearestDate && diff > 0) {
+            const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            timerEl.innerText = `${d}д ${h}ч ${m}м`;
         }
 
         balanceEl.innerText = `${currentBalance.toLocaleString()} ₽`;
@@ -120,9 +135,8 @@ async function updateUI() {
 
     } catch (error) {
         console.error('Ошибка обновления UI:', error);
-        alert('Произошла ошибка при загрузке данных');
     }
-
+}
         console.error('Ошибка обновления UI:', error);
     }
 }
