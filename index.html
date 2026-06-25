@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Family Finance</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div class="stats-grid">
+                <div class="stat-card primary">
+                    <span class="label">Текущий баланс</span>
+                    <h2 id="total-balance">0 ₽</h2>
+                </div>
+                <div class="stat-card warning">
+                    <span class="label">Долги (план)</span>
+                    <h2 id="total-debts">0 ₽</h2>
+                </div>
+                <div id="next-payment-warning" style="display:none; background: #fee2e2; color: #b91c1c; padding: 8px; border-radius: 8px; margin-bottom: 15px; font-size: 0.9em; border: 1px solid #fecaca;">
+                    ⚠️ Ближайший платеж через: <span id="countdown-timer">--</span>
+                </div>
+                <div class="stat-card success">
+                    <span class="label">Чистый остаток</span>
+                    <h2 id="net-available">0 ₽</h2>
+                </div>
+
+            </div>
+        </header>
+
+        <main>
+            <section class="form-section">
+                <div class="tabs">
+                    <button class="tab-btn active" data-target="tx-form">Транзакция</button>
+                    <button class="tab-btn" data-target="credit-form">Кредит/Долг</button>
+                </div>
+
+                <!-- Форма транзакции -->
+                <div id="tx-form" class="tab-content active">
+                    <div class="input-group">
+                        <input type="number" id="amount-input" placeholder="Сумма" inputmode="numeric">
+                        <input type="text" id="desc-input" placeholder="Описание">
+                        <div class="btn-row">
+                            <button id="add-plus" class="btn btn-plus">Доход</button>
+                            <button id="add-minus" class="btn btn-minus">Расход</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Форма кредита -->
+                <div id="credit-form" class="tab-content">
+                    <div class="input-group">
+                        <input type="number" id="credit-amount" placeholder="Сумма долга" inputmode="numeric">
+                        <input type="text" id="credit-desc" placeholder="Описание (напр. Ипотека)">
+                        <input type="date" id="credit-date">
+                        <button id="add-credit" class="btn btn-warning">Добавить в план</button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="history-section">
+                <div class="section-header">
+                    <h3>История транзакций</h3>
+                    <span class="badge">Последние</span>
+                </div>
+                <ul id="transaction-list"></ul>
+                    <div class="action-buttons">
+                        <button onclick="location.reload()" title="Обновить">🔄</button>
+                    </div>
+
+            </section>
+
+            <section class="history-section">
+                <div class="section-header">
+                    <h3>План платежей</h3>
+                    <span class="badge debt-badge">Неоплачено</span>
+                </div>
+                <ul id="credit-list"></ul>
+            </section>
+        </main>
+    </div>
+    <script type="module" src="app.js"></script>
+</body>
+</html>
