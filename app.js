@@ -10,7 +10,28 @@ const ALLOWED_IDS = [732965327, 540870507];
 
 const dbClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const balanceEl = document.getElementById('total-balance');
+const debtsEl = document.getElementById('total-debts');
+const netEl = document.getElementById('net-available');
+const amountInput = document.getElementById('amount-input');
+const descInput = document.getElementById('desc-input');
+const listEl = document.getElementById('transaction-list');
+const creditListEl = document.getElementById('credit-list');
 const timerEl = document.getElementById('next-payment-timer');
+
+const btnPlus = document.getElementById('add-plus');
+const btnMinus = document.getElementById('add-minus');
+const btnAddCredit = document.getElementById('add-credit');
+
+// Табы
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.target).classList.add('active');
+    });
+});
 
 async function updateTimer() {
     try {
@@ -46,7 +67,6 @@ async function updateTimer() {
     }
 }
 
-// Добавляем вызов в основной цикл обновления и запускаем интервал
 async function updateUI() {
     try {
         // 1. Получаем транзакции
@@ -113,6 +133,83 @@ async function updateUI() {
     }
 }
 
+async function addTransaction(type) {
+    const amount = amountInput.value;
+    const description = descInput.value;
+    if (!amount || amount <= 0) return alert('Введите сумму');
+
+    try {
+        await dbClient.from('transactions').insert([{
+            amount: parseFloat(amount),
+            description,
+            type
+        }]);
+        amountInput.value = '';
+        descInput.value = '';
+        updateUI();
+    } catch (e) { console.error(e); }
+}
+
+async function addCredit() {
+    const amount = document.getElementById('credit-amount').value;
+    const description = document.getElementById('credit-desc').value;
+    const due_date = document.getElementById('credit-date').value;
+
+    if (!amount || !due_date) return alert('Заполните все поля кредита');
+
+    try {
+        await dbClient.from('credits').insert([{
+            amount: parseFloat(amount),
+            description,
+            due_date,
+            is_paid: false
+        }]);
+        document.getElementById('credit-amount').value = '';
+        document.getElementById('credit-desc').value = '';
+        updateUI();
+    } catch (e) { console.error(e); }
+}
+
+async function payCredit(id, amount, description) {
+    try {
+        const { error: txErr } = await dbClient.from('transactions').insert([{
+            amount: parseFloat(amount),
+            description: `Оплата: ${description}`,
+            type: 'minus'
+        }]);
+
+        if (txErr) throw txErr;
+
+        const { error: updateErr } = await dbClient.from('credits')
+            .update({ is_paid: true })
+            .eq('id', id);
+
+        if (updateErr) throw updateErr;
+
+        updateUI();
+    } catch (e) {
+        console.error('Ошибка оплаты:', e);
+        alert('Не удалось оплатить кредит');
+    }
+}
+
+btnPlus.addEventListener('click', () => addTransaction('plus'));
+btnMinus.addEventListener('click', () => addTransaction('minus'));
+btnAddCredit.addEventListener('click', addCredit);
+
+(async () => {
+    if (window.Telegram && window.Telegram.WebApp) {
+        const user = window.Telegram.WebApp.initDataUnsafe?.user;
+        if (!user || !ALLOWED_IDS.includes(user.id)) {
+            document.getElementById('app').innerHTML = `
+                <div style="text-align:center; padding: 50px;">
+                    <h2>🚫 Доступ запрещен</h2>
+                </div>`;
+            return;
+        }
+    } else {
+        document.getElementById('app').innerHTML = `<h2>Приложение доступно только в Telegram</h2>`;
+        return;
     }
 
     updateUI();
