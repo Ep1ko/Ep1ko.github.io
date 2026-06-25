@@ -179,7 +179,16 @@ li {
     font-size: 0.85rem;
 }
 
-.credit-date {
-    color: var(--text-dim);
+.btn-pay {
+    background: var(--accent-success);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 8px;
     font-size: 0.75rem;
+    border: none;
+    margin-left: 10px;
+}
+
+.btn-pay:active {
+    opacity: 0.8;
 }
