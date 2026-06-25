@@ -71,6 +71,9 @@ async function updateUI() {
         const creditsData = [];
 
         credits.forEach(c => {
+            // Выводим ВСЕ кредиты, которые есть в базе (или те, что еще не "архивированы")
+            // Если ты хочешь, чтобы оплаченные оставались в списке, но помечались - это можно сделать.
+            // Но сейчас исправим так: если он НЕ оплачен, он в плане.
             if (!c.is_paid) {
                 totalDebts += Number(c.amount);
                 creditsData.push(c);
@@ -82,6 +85,8 @@ async function updateUI() {
                         <span class="credit-date">${c.due_date}</span>
                     </div>
                     <span class="t-amount negative">-${Number(c.amount).toLocaleString()} ₽</span>
+                    <button class="pay-btn" onclick="handlePay('${c.id}')">Оплатить</button>
+                    <button class="delete-btn" onclick="removeCredit('${c.id}')" title="Удалить из плана">🗑️</button>
                 `;
                 creditListEl.appendChild(li);
 
@@ -92,8 +97,8 @@ async function updateUI() {
             }
         });
 
-        if (creditsData.length === 0) {
-            creditListEl.innerHTML = '<li class="empty-state">Нет запланированных долгов</li>';
+        if (creditsData.length === 0 && !somePaidCreditsFound) { // упростим для краткости
+             // если нет активных долгов, оставляем место пустым или пишем "нет"
         }
 
         // Логика таймера
@@ -120,8 +125,8 @@ async function updateUI() {
 
     } catch (error) {
         console.error('Ошибка обновления UI:', error);
-        alert('Произошла ошибка при загрузке данных');
     }
+
 
         console.error('Ошибка обновления UI:', error);
     }
@@ -148,6 +153,16 @@ async function deleteTransaction(id) {
     if (!confirm('Удалить эту транзакцию?')) return;
     try {
         await dbClient.from('transactions').delete().eq('id', id);
+        updateUI();
+    } catch (e) {
+        console.error(e);
+        alert('Ошибка при удалении');
+    }
+// Удаление кредита (полное удаление из базы)
+async function removeCredit(id) {
+    if (!confirm('Удалить этот пункт из плана?')) return;
+    try {
+        await dbClient.from('credits').delete().eq('id', id);
         updateUI();
     } catch (e) {
         console.error(e);
