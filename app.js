@@ -1,29 +1,156 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-// --- НАСТРОЙКИ ---
+// ========================
+// НАСТРОЙКИ
+// ========================
 const SUPABASE_URL = 'https://civmjhjefyxxddawbstk.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_zO47rJfcZVCyRO-JiruFbA_zrQCs3wn';
 
-// ВСТАВЬ СЮДА СВОИ TELEGRAM ID (числами)
+// ВСТАВЬТЕ СВОИ TELEGRAM ID
 const ALLOWED_IDS = [732965327, 540870507];
-// -----------------
+// ========================
 
 const dbClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Категории
+const CATEGORIES = {
+    salary: 'Зарплата',
+    food: 'Продукты',
+    transport: 'Транспорт',
+    housing: 'Жильё / Коммуналка',
+    entertainment: 'Развлечения',
+    health: 'Здоровье',
+    clothes: 'Одежда',
+    education: 'Образование',
+    gifts: 'Подарки',
+    other: 'Другое'
+};
+
+const MONTH_NAMES = [
+    'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+    'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+];
+
+// ========================
+// DOM-ЭЛЕМЕНТЫ
+// ========================
 const balanceEl = document.getElementById('total-balance');
 const debtsEl = document.getElementById('total-debts');
 const netEl = document.getElementById('net-available');
 const amountInput = document.getElementById('amount-input');
 const descInput = document.getElementById('desc-input');
+const categorySelect = document.getElementById('category-select');
 const listEl = document.getElementById('transaction-list');
 const creditListEl = document.getElementById('credit-list');
-const timerEl = document.getElementById('next-payment-timer');
+const paidCreditListEl = document.getElementById('paid-credit-list');
+const txEmptyEl = document.getElementById('tx-empty');
+const crEmptyEl = document.getElementById('cr-empty');
+const txCountEl = document.getElementById('tx-count');
+const debtCountEl = document.getElementById('debt-count');
+const paidCountEl = document.getElementById('paid-count');
+const txSummaryEl = document.getElementById('tx-summary');
+const sumIncomeEl = document.getElementById('sum-income');
+const sumExpenseEl = document.getElementById('sum-expense');
+const paidSectionEl = document.getElementById('paid-section');
 
 const btnPlus = document.getElementById('add-plus');
 const btnMinus = document.getElementById('add-minus');
 const btnAddCredit = document.getElementById('add-credit');
 
-// Табы
+const loadingOverlay = document.getElementById('loading-overlay');
+const confirmModal = document.getElementById('confirm-modal');
+const confirmText = document.getElementById('confirm-text');
+const confirmYes = document.getElementById('confirm-yes');
+const confirmNo = document.getElementById('confirm-no');
+const toastEl = document.getElementById('toast');
+
+const filterLabel = document.getElementById('filter-label');
+const filterPrev = document.getElementById('filter-prev');
+const filterNext = document.getElementById('filter-next');
+const filterAll = document.getElementById('filter-all');
+
+// ========================
+// СОСТОЯНИЕ
+// ========================
+let filterYear = new Date().getFullYear();
+let filterMonth = new Date().getMonth(); // 0-indexed
+let filterActive = true; // true = фильтр по месяцу, false = все время
+let confirmCallback = null;
+
+// ========================
+// УТИЛИТЫ
+// ========================
+function formatMoney(n) {
+    return Number(n).toLocaleString('ru-RU');
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    return `${day}.${month}.${d.getFullYear()}`;
+}
+
+function formatShortDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    return `${day}.${month}`;
+}
+
+function isSameMonth(dateStr, year, month) {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    return d.getFullYear() === year && d.getMonth() === month;
+}
+
+function showToast(message, type = 'error') {
+    toastEl.textContent = message;
+    toastEl.className = 'toast' + (type === 'success' ? ' success' : '');
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(() => {
+        toastEl.classList.add('hidden');
+    }, 3000);
+}
+
+function showLoading() {
+    loadingOverlay.classList.remove('hidden');
+}
+
+function hideLoading() {
+    loadingOverlay.classList.add('hidden');
+}
+
+function showConfirm(text, onYes) {
+    confirmText.textContent = text;
+    confirmCallback = onYes;
+    confirmModal.classList.remove('hidden');
+}
+
+function hideConfirm() {
+    confirmModal.classList.add('hidden');
+    confirmCallback = null;
+}
+
+function updateFilterLabel() {
+    if (!filterActive) {
+        filterLabel.textContent = 'За всё время';
+    } else {
+        filterLabel.textContent = `${MONTH_NAMES[filterMonth]} ${filterYear}`;
+    }
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// ========================
+// ТАБЫ
+// ========================
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -33,52 +160,59 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     });
 });
 
-async function updateTimer() {
-    try {
-        const { data: credits, error: crErr } = await dbClient
-            .from('credits')
-            .select('*')
-            .eq('is_paid', false)
-            .order('due_date', { ascending: true })
-            .limit(1);
+// ========================
+// МОДАЛКА
+// ========================
+confirmYes.addEventListener('click', () => {
+    if (confirmCallback) confirmCallback();
+    hideConfirm();
+});
 
-        if (crErr || !credits || credits.length === 0) {
-            timerEl.innerText = 'Нет платежей';
-            return;
-        }
+confirmNo.addEventListener('click', hideConfirm);
 
-        const nextDate = new Date(credits[0].due_date);
-        const now = new Date();
-        const diff = nextDate - now;
+confirmModal.addEventListener('click', (e) => {
+    if (e.target === confirmModal) hideConfirm();
+});
 
-        if (diff <= 0) {
-            timerEl.innerText = 'Срок вышел';
-            timerEl.style.color = 'var(--accent-danger)';
-        } else {
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+// ========================
+// ФИЛЬТР МЕСЯЦА
+// ========================
+filterPrev.addEventListener('click', () => {
+    filterActive = true;
+    filterMonth--;
+    if (filterMonth < 0) { filterMonth = 11; filterYear--; }
+    updateFilterLabel();
+    updateUI();
+});
 
-            timerEl.innerText = `${days}д ${hours}ч ${mins}м`;
-            timerEl.style.color = 'var(--text-main)';
-        }
-    } catch (e) {
-        console.error('Ошибка таймера:', e);
-    }
-}
+filterNext.addEventListener('click', () => {
+    filterActive = true;
+    filterMonth++;
+    if (filterMonth > 11) { filterMonth = 0; filterYear++; }
+    updateFilterLabel();
+    updateUI();
+});
 
+filterAll.addEventListener('click', () => {
+    filterActive = false;
+    updateFilterLabel();
+    updateUI();
+});
+
+// ========================
+// ГЛАВНОЕ ОБНОВЛЕНИЕ UI
+// ========================
 async function updateUI() {
     try {
-        // 1. Получаем транзакции
-        const { data: transactions, error: txErr } = await dbClient
+        // 1. Все транзакции (нужны для расчёта баланса)
+        const { data: allTransactions, error: txErr } = await dbClient
             .from('transactions')
             .select('*')
-            .order('created_at', { ascending: false })
-            .limit(50);
+            .order('created_at', { ascending: false });
 
         if (txErr) throw txErr;
 
-        // 2. Получаем кредиты
+        // 2. Все кредиты
         const { data: credits, error: crErr } = await dbClient
             .from('credits')
             .select('*')
@@ -86,131 +220,318 @@ async function updateUI() {
 
         if (crErr) throw crErr;
 
+        // --- Фильтрованные транзакции ---
+        const filtered = filterActive
+            ? allTransactions.filter(t => isSameMonth(t.created_at, filterYear, filterMonth))
+            : allTransactions;
+
+        // --- Баланс за всё время ---
         let currentBalance = 0;
-        listEl.innerHTML = '';
-        transactions.forEach(t => {
+        allTransactions.forEach(t => {
             if (t.type === 'plus') currentBalance += Number(t.amount);
             else currentBalance -= Number(t.amount);
+        });
 
+        // --- Сумма за период ---
+        let periodIncome = 0;
+        let periodExpense = 0;
+        filtered.forEach(t => {
+            if (t.type === 'plus') periodIncome += Number(t.amount);
+            else periodExpense += Number(t.amount);
+        });
+
+        // --- Рендер транзакций ---
+        listEl.innerHTML = '';
+        filtered.slice(0, 100).forEach(t => {
             const li = document.createElement('li');
+            const cat = t.category ? (CATEGORIES[t.category] || '') : '';
             li.innerHTML = `
-                <span class="t-desc">${t.description || 'Без описания'}</span>
-                <span class="t-amount ${t.type === 'plus' ? 'positive' : 'negative'}">
-                    ${t.type === 'plus' ? '+' : '-'}${Number(t.amount).toLocaleString()} ₽
-                </span>
+                <div class="tx-left">
+                    <span class="tx-desc">${escapeHtml(t.description || 'Без описания')}</span>
+                    <div class="tx-meta">
+                        ${cat ? `<span class="tx-category">${escapeHtml(cat)}</span>` : ''}
+                        <span>${formatShortDate(t.created_at)}</span>
+                    </div>
+                </div>
+                <div class="tx-right">
+                    <span class="t-amount ${t.type === 'plus' ? 'positive' : 'negative'}">
+                        ${t.type === 'plus' ? '+' : '-'}${formatMoney(t.amount)} ₽
+                    </span>
+                    <button class="tx-delete" data-id="${t.id}" data-type="tx" title="Удалить">&times;</button>
+                </div>
             `;
             listEl.appendChild(li);
         });
 
+        // Пустое состояние
+        txEmptyEl.classList.toggle('hidden', filtered.length > 0);
+        txCountEl.textContent = filtered.length;
+
+        // Сводка доходов/расходов
+        if (filtered.length > 0) {
+            txSummaryEl.classList.remove('hidden');
+            sumIncomeEl.textContent = formatMoney(periodIncome);
+            sumExpenseEl.textContent = formatMoney(periodExpense);
+        } else {
+            txSummaryEl.classList.add('hidden');
+        }
+
+        // --- Кредиты ---
         let totalDebts = 0;
-        creditListEl.innerHTML = '';
+        let unpaidCredits = [];
+        let paidCredits = [];
+
         credits.forEach(c => {
             if (!c.is_paid) {
                 totalDebts += Number(c.amount);
-                const li = document.createElement('li');
-                li.className = 'credit-item';
-                li.innerHTML = `
-                    <div class="credit-info">
-                        <span class="c-desc">${c.description || 'Долг'}</span>
-                        <span class="credit-date">${c.due_date}</span>
-                    </div>
-                    <span class="t-amount negative">-${Number(c.amount).toLocaleString()} ₽</span>
-                    <button onclick="payCredit('${c.id}', ${c.amount}, '${c.description.replace(/'/g, "\\'")}')" class="btn-pay">Оплачено</button>
-                `;
-                creditListEl.appendChild(li);
+                unpaidCredits.push(c);
+            } else {
+                paidCredits.push(c);
             }
         });
 
-        // Обновляем верхние карточки
-        balanceEl.innerText = `${currentBalance.toLocaleString()} ₽`;
-        debtsEl.innerText = `${totalDebts.toLocaleString()} ₽`;
-        netEl.innerText = `${(currentBalance - totalDebts).toLocaleString()} ₽`;
-        
-        await updateTimer();
+        // Неоплаченные
+        creditListEl.innerHTML = '';
+        unpaidCredits.forEach(c => {
+            const li = document.createElement('li');
+            li.className = 'credit-item';
+            li.innerHTML = `
+                <div class="credit-info">
+                    <span>${escapeHtml(c.description || 'Долг')}</span>
+                    <span class="credit-date">до ${formatDate(c.due_date)}</span>
+                </div>
+                <div class="credit-actions">
+                    <span class="t-amount negative">-${formatMoney(c.amount)} ₽</span>
+                    <button class="btn-outline-paid" data-id="${c.id}" data-action="pay">Оплачено</button>
+                    <button class="tx-delete" data-id="${c.id}" data-type="credit" title="Удалить">&times;</button>
+                </div>
+            `;
+            creditListEl.appendChild(li);
+        });
+
+        crEmptyEl.classList.toggle('hidden', unpaidCredits.length > 0);
+        debtCountEl.textContent = unpaidCredits.length;
+
+        // Оплаченные
+        if (paidCredits.length > 0) {
+            paidSectionEl.classList.remove('hidden');
+            paidCountEl.textContent = paidCredits.length;
+            paidCreditListEl.innerHTML = '';
+            paidCredits.forEach(c => {
+                const li = document.createElement('li');
+                li.className = 'credit-item paid';
+                li.innerHTML = `
+                    <div class="credit-info">
+                        <span>${escapeHtml(c.description || 'Долг')}</span>
+                        <span class="credit-date">${formatDate(c.due_date)}</span>
+                    </div>
+                    <div class="credit-actions">
+                        <span class="t-amount" style="color:var(--text-dim); text-decoration:line-through;">${formatMoney(c.amount)} ₽</span>
+                        <button class="tx-delete" data-id="${c.id}" data-type="credit" title="Удалить">&times;</button>
+                    </div>
+                `;
+                paidCreditListEl.appendChild(li);
+            });
+        } else {
+            paidSectionEl.classList.add('hidden');
+        }
+
+        // --- Верхние карточки ---
+        balanceEl.textContent = `${formatMoney(currentBalance)} ₽`;
+        debtsEl.textContent = `${formatMoney(totalDebts)} ₽`;
+        netEl.textContent = `${formatMoney(currentBalance - totalDebts)} ₽`;
 
     } catch (error) {
         console.error('Ошибка обновления UI:', error);
+        showToast('Не удалось загрузить данные. Проверьте подключение.');
     }
 }
 
+// ========================
+// ДОБАВЛЕНИЕ ТРАНЗАКЦИИ
+// ========================
 async function addTransaction(type) {
     const amount = amountInput.value;
-    const description = descInput.value;
-    if (!amount || amount <= 0) return alert('Введите сумму');
+    const description = descInput.value.trim();
+    const category = categorySelect.value;
+
+    if (!amount || Number(amount) <= 0) {
+        showToast('Введите корректную сумму');
+        amountInput.focus();
+        return;
+    }
 
     try {
-        await dbClient.from('transactions').insert([{
+        const { error } = await dbClient.from('transactions').insert([{
             amount: parseFloat(amount),
-            description,
-            type
+            description: description || null,
+            type,
+            category: category || null
         }]);
+
+        if (error) throw error;
+
         amountInput.value = '';
         descInput.value = '';
+        categorySelect.value = '';
+        showToast('Транзакция добавлена', 'success');
         updateUI();
-    } catch (e) { console.error(e); }
+    } catch (e) {
+        console.error(e);
+        showToast('Ошибка при добавлении транзакции');
+    }
 }
 
+// ========================
+// ДОБАВЛЕНИЕ КРЕДИТА
+// ========================
 async function addCredit() {
     const amount = document.getElementById('credit-amount').value;
-    const description = document.getElementById('credit-desc').value;
+    const description = document.getElementById('credit-desc').value.trim();
     const due_date = document.getElementById('credit-date').value;
 
-    if (!amount || !due_date) return alert('Заполните все поля кредита');
+    if (!amount || Number(amount) <= 0 || !due_date) {
+        showToast('Заполните сумму и дату');
+        return;
+    }
 
     try {
-        await dbClient.from('credits').insert([{
+        const { error } = await dbClient.from('credits').insert([{
             amount: parseFloat(amount),
-            description,
+            description: description || null,
             due_date,
             is_paid: false
         }]);
+
+        if (error) throw error;
+
         document.getElementById('credit-amount').value = '';
         document.getElementById('credit-desc').value = '';
-        updateUI();
-    } catch (e) { console.error(e); }
-}
-
-async function payCredit(id, amount, description) {
-    try {
-        const { error: txErr } = await dbClient.from('transactions').insert([{
-            amount: parseFloat(amount),
-            description: `Оплата: ${description}`,
-            type: 'minus'
-        }]);
-
-        if (txErr) throw txErr;
-
-        const { error: updateErr } = await dbClient.from('credits')
-            .update({ is_paid: true })
-            .eq('id', id);
-
-        if (updateErr) throw updateErr;
-
+        document.getElementById('credit-date').value = '';  // ИСПРАВЛЕНО: теперь очищается
+        showToast('Платёж добавлен в план', 'success');
         updateUI();
     } catch (e) {
-        console.error('Ошибка оплаты:', e);
-        alert('Не удалось оплатить кредит');
+        console.error(e);
+        showToast('Ошибка при добавлении платежа');
     }
 }
 
+// ========================
+// УДАЛЕНИЕ ТРАНЗАКЦИИ / КРЕДИТА
+// ========================
+async function deleteTransaction(id) {
+    showConfirm('Удалить эту транзакцию?', async () => {
+        try {
+            const { error } = await dbClient.from('transactions').delete().eq('id', id);
+            if (error) throw error;
+            showToast('Транзакция удалена', 'success');
+            updateUI();
+        } catch (e) {
+            console.error(e);
+            showToast('Ошибка при удалении');
+        }
+    });
+}
+
+async function deleteCredit(id) {
+    showConfirm('Удалить этот платёж из плана?', async () => {
+        try {
+            const { error } = await dbClient.from('credits').delete().eq('id', id);
+            if (error) throw error;
+            showToast('Платёж удалён', 'success');
+            updateUI();
+        } catch (e) {
+            console.error(e);
+            showToast('Ошибка при удалении');
+        }
+    });
+}
+
+async function markCreditPaid(id) {
+    showConfirm('Отметить платёж как оплаченный?', async () => {
+        try {
+            const { error } = await dbClient
+                .from('credits')
+                .update({ is_paid: true })
+                .eq('id', id);
+            if (error) throw error;
+            showToast('Платёж отмечен как оплаченный', 'success');
+            updateUI();
+        } catch (e) {
+            console.error(e);
+            showToast('Ошибка обновления');
+        }
+    });
+}
+
+// ========================
+// DELEGATION: клики по кнопкам удаления и «Оплачено»
+// ========================
+document.addEventListener('click', (e) => {
+    const deleteBtn = e.target.closest('.tx-delete');
+    if (deleteBtn) {
+        const id = deleteBtn.dataset.id;
+        const type = deleteBtn.dataset.type;
+        if (type === 'tx') deleteTransaction(id);
+        else if (type === 'credit') deleteCredit(id);
+        return;
+    }
+
+    const payBtn = e.target.closest('[data-action="pay"]');
+    if (payBtn) {
+        markCreditPaid(payBtn.dataset.id);
+    }
+});
+
+// ========================
+// КНОПКИ ФОРМЫ
+// ========================
 btnPlus.addEventListener('click', () => addTransaction('plus'));
 btnMinus.addEventListener('click', () => addTransaction('minus'));
 btnAddCredit.addEventListener('click', addCredit);
 
+// Enter на полях суммы
+amountInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') addTransaction('plus');
+});
+
+document.getElementById('credit-amount').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') addCredit();
+});
+
+// ========================
+// ЗАПУСК
+// ========================
 (async () => {
-    if (window.Telegram && window.Telegram.WebApp) {
-        const user = window.Telegram.WebApp.initDataUnsafe?.user;
+    // Проверка Telegram
+    const isTelegram = !!(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user);
+    const isDev = new URLSearchParams(window.location.search).has('dev');
+
+    if (isTelegram) {
+        const user = window.Telegram.WebApp.initDataUnsafe.user;
         if (!user || !ALLOWED_IDS.includes(user.id)) {
             document.getElementById('app').innerHTML = `
-                <div style="text-align:center; padding: 50px;">
-                    <h2>🚫 Доступ запрещен</h2>
+                <div class="access-denied">
+                    <h2>Доступ запрещён</h2>
+                    <p>Ваш Telegram ID не авторизован</p>
                 </div>`;
+            hideLoading();
             return;
         }
-    } else {
-        document.getElementById('app').innerHTML = `<h2>Приложение доступно только в Telegram</h2>`;
+        // Расширяем приложение на весь экран
+        window.Telegram.WebApp.expand();
+    } else if (!isDev) {
+        document.getElementById('app').innerHTML = `
+            <div class="access-denied">
+                <h2>Открыто вне Telegram</h2>
+                <p>Добавьте <code>?dev</code> в адрес для тестирования</p>
+            </div>`;
+        hideLoading();
         return;
     }
 
-    updateUI();
+    // Всё ок — загружаем данные
+    updateFilterLabel();
+    await updateUI();
+    hideLoading();
 })();

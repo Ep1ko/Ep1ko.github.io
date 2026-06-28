@@ -3,46 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Family Finance</title>
+    <title>Семейный бюджет</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
+    <!-- Загрузка -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <span>Загрузка...</span>
+    </div>
+
+    <!-- Модальное окно подтверждения -->
+    <div id="confirm-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <p id="confirm-text"></p>
+            <div class="modal-actions">
+                <button id="confirm-yes" class="btn btn-danger">Удалить</button>
+                <button id="confirm-no" class="btn btn-secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Тост-уведомление -->
+    <div id="toast" class="toast hidden"></div>
+
     <div id="app">
         <header>
+            <div class="app-title">
+                <h1>Семейный бюджет</h1>
+            </div>
             <div class="stats-grid">
                 <div class="stat-card primary">
-                    <span class="label">Текущий баланс</span>
+                    <span class="label">Баланс</span>
                     <h2 id="total-balance">0 ₽</h2>
                 </div>
                 <div class="stat-card warning">
-                    <span class="label">Долги (план)</span>
+                    <span class="label">Долги</span>
                     <h2 id="total-debts">0 ₽</h2>
                 </div>
                 <div class="stat-card success">
-                    <span class="label">Чистый остаток</span>
+                    <span class="label">Свободно</span>
                     <h2 id="net-available">0 ₽</h2>
                 </div>
-                <div class="stat-card warning" style="grid-column: span 1; border: 1px dashed var(--accent-warning);">
-                    <span class="label">Ближайший платеж</span>
-                    <h2 id="next-payment-timer" style="font-size: 0.9rem;">---</h2>
-                </div>
             </div>
+
+            <!-- Фильтр по месяцу -->
+            <div class="filter-row">
+                <button id="filter-prev" class="filter-btn" aria-label="Предыдущий месяц">&lsaquo;</button>
+                <span id="filter-label" class="filter-label">Июнь 2026</span>
+                <button id="filter-next" class="filter-btn" aria-label="Следующий месяц">&rsaquo;</button>
+                <button id="filter-all" class="filter-link">Все</button>
             </div>
         </header>
 
         <main>
+            <!-- Форма -->
             <section class="form-section">
                 <div class="tabs">
                     <button class="tab-btn active" data-target="tx-form">Транзакция</button>
-                    <button class="tab-btn" data-target="credit-form">Кредит/Долг</button>
+                    <button class="tab-btn" data-target="credit-form">Кредит / Долг</button>
                 </div>
 
-                <!-- Форма транзакции -->
+                <!-- Транзакция -->
                 <div id="tx-form" class="tab-content active">
                     <div class="input-group">
-                        <input type="number" id="amount-input" placeholder="Сумма" inputmode="numeric">
-                        <input type="text" id="desc-input" placeholder="Описание">
+                        <input type="number" id="amount-input" placeholder="Сумма" inputmode="numeric" min="0" step="0.01">
+                        <input type="text" id="desc-input" placeholder="Описание" maxlength="100">
+                        <select id="category-select">
+                            <option value="">Без категории</option>
+                            <option value="salary">Зарплата</option>
+                            <option value="food">Продукты</option>
+                            <option value="transport">Транспорт</option>
+                            <option value="housing">Жильё / Коммуналка</option>
+                            <option value="entertainment">Развлечения</option>
+                            <option value="health">Здоровье</option>
+                            <option value="clothes">Одежда</option>
+                            <option value="education">Образование</option>
+                            <option value="gifts">Подарки</option>
+                            <option value="other">Другое</option>
+                        </select>
                         <div class="btn-row">
                             <button id="add-plus" class="btn btn-plus">Доход</button>
                             <button id="add-minus" class="btn btn-minus">Расход</button>
@@ -50,31 +92,51 @@
                     </div>
                 </div>
 
-                <!-- Форма кредита -->
+                <!-- Кредит -->
                 <div id="credit-form" class="tab-content">
                     <div class="input-group">
-                        <input type="number" id="credit-amount" placeholder="Сумма долга" inputmode="numeric">
-                        <input type="text" id="credit-desc" placeholder="Описание (напр. Ипотека)">
+                        <input type="number" id="credit-amount" placeholder="Сумма долга" inputmode="numeric" min="0" step="0.01">
+                        <input type="text" id="credit-desc" placeholder="Описание (напр. Ипотека)" maxlength="100">
                         <input type="date" id="credit-date">
                         <button id="add-credit" class="btn btn-warning">Добавить в план</button>
                     </div>
                 </div>
             </section>
 
+            <!-- История транзакций -->
             <section class="history-section">
                 <div class="section-header">
-                    <h3>История транзакций</h3>
-                    <span class="badge">Последние</span>
+                    <h3>Транзакции</h3>
+                    <span id="tx-count" class="badge">0</span>
+                </div>
+                <div id="tx-summary" class="summary-row hidden">
+                    <span class="summary-income">Доходы: <b id="sum-income">0</b> ₽</span>
+                    <span class="summary-expense">Расходы: <b id="sum-expense">0</b> ₽</span>
                 </div>
                 <ul id="transaction-list"></ul>
+                <div id="tx-empty" class="empty-state hidden">
+                    <p>Нет транзакций</p>
+                </div>
             </section>
 
+            <!-- План платежей -->
             <section class="history-section">
                 <div class="section-header">
                     <h3>План платежей</h3>
-                    <span class="badge debt-badge">Неоплачено</span>
+                    <span id="debt-count" class="badge debt-badge">0</span>
                 </div>
                 <ul id="credit-list"></ul>
+                <div id="cr-empty" class="empty-state hidden">
+                    <p>Нет запланированных платежей</p>
+                </div>
+                <!-- Оплаченные -->
+                <div id="paid-section" class="paid-section hidden">
+                    <div class="section-header">
+                        <h3>Оплачено</h3>
+                        <span id="paid-count" class="badge paid-badge">0</span>
+                    </div>
+                    <ul id="paid-credit-list"></ul>
+                </div>
             </section>
         </main>
     </div>
