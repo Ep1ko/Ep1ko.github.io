@@ -95,10 +95,19 @@ function formatShortDate(dateStr) {
     return `${day}.${month}`;
 }
 
+function parseYearMonth(dateStr) {
+    if (!dateStr) return null;
+    // Берём год и месяц прямо из ISO-строки, без конвертации таймзон
+    const y = parseInt(dateStr.substring(0, 4), 10);
+    const m = parseInt(dateStr.substring(5, 7), 10); // 1-indexed
+    if (isNaN(y) || isNaN(m)) return null;
+    return { year: y, month: m - 1 }; // 0-indexed месяц
+}
+
 function isSameMonth(dateStr, year, month) {
-    if (!dateStr) return false;
-    const d = new Date(dateStr);
-    return d.getFullYear() === year && d.getMonth() === month;
+    const p = parseYearMonth(dateStr);
+    if (!p) return false;
+    return p.year === year && p.month === month;
 }
 
 /** Дней от сегодняшнего дня до даты (0 = сегодня, отрицательное = прошлое) */
@@ -302,13 +311,10 @@ async function updateUI() {
         txEmptyEl.classList.toggle('hidden', filtered.length > 0);
         txCountEl.textContent = filtered.length;
 
-        if (filtered.length > 0) {
-            txSummaryEl.classList.remove('hidden');
-            sumIncomeEl.textContent = formatMoney(periodIncome);
-            sumExpenseEl.textContent = formatMoney(periodExpense);
-        } else {
-            txSummaryEl.classList.add('hidden');
-        }
+        // Подитог — всегда видим, пересчитывается для каждого месяца
+        txSummaryEl.classList.remove('hidden');
+        sumIncomeEl.textContent = formatMoney(periodIncome);
+        sumExpenseEl.textContent = formatMoney(periodExpense);
 
         // --- Рендер кредитов (план платежей) ---
         renderCredits();
