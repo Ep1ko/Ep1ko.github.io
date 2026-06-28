@@ -131,6 +131,13 @@ body {
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
 }
 
+.form-hint {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin: 0 0 14px;
+    line-height: 1.4;
+}
+
 .tabs {
     display: flex;
     gap: 8px;
@@ -167,7 +174,7 @@ body {
     gap: 10px;
 }
 
-input, select {
+input {
     background: var(--input-bg);
     border: 1px solid var(--border);
     padding: 13px 14px;
@@ -176,20 +183,11 @@ input, select {
     font-size: 0.95rem;
     outline: none;
     font-family: inherit;
-    -webkit-appearance: none;
-    appearance: none;
     transition: border-color 0.15s;
 }
 
-input:focus, select:focus {
+input:focus {
     border-color: var(--accent-success);
-}
-
-select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M1.5 5.5l6.5 6.5 6.5-6.5'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 14px center;
-    padding-right: 36px;
 }
 
 .btn-row {
@@ -216,12 +214,6 @@ select {
 .btn-warning { background: var(--accent-warning); color: #000; }
 .btn-danger { background: var(--accent-danger); color: #fff; flex: 1; }
 .btn-secondary { background: var(--input-bg); color: var(--text-dim); flex: 1; }
-.btn-sm {
-    padding: 6px 10px;
-    font-size: 0.75rem;
-    border-radius: 8px;
-    font-weight: 600;
-}
 
 .btn-outline-paid {
     background: transparent;
@@ -234,9 +226,10 @@ select {
     cursor: pointer;
     font-family: inherit;
     transition: background 0.15s;
+    white-space: nowrap;
 }
 
-.btn-outline-paid:hover { background: rgba(16, 185, 129, 0.12); }
+.btn-outline-paid:active { background: rgba(16, 185, 129, 0.15); }
 
 /* ---- HISTORY ---- */
 .history-section {
@@ -265,7 +258,6 @@ select {
 }
 
 .debt-badge { background: var(--accent-warning); color: #000; }
-.paid-badge { background: var(--accent-success); color: #fff; }
 
 .summary-row {
     display: flex;
@@ -279,7 +271,6 @@ select {
 
 .summary-income { color: var(--accent-success); }
 .summary-expense { color: var(--accent-danger); }
-
 .summary-row b { font-weight: 700; }
 
 ul {
@@ -324,15 +315,6 @@ li {
     color: var(--text-dim);
 }
 
-.tx-category {
-    background: var(--input-bg);
-    padding: 1px 7px;
-    border-radius: 6px;
-    font-size: 0.68rem;
-    color: var(--text-dim);
-    white-space: nowrap;
-}
-
 .tx-right {
     display: flex;
     align-items: center;
@@ -363,11 +345,6 @@ li {
     border-left: 4px solid var(--accent-warning);
 }
 
-.credit-item.paid {
-    border-left-color: var(--accent-success);
-    opacity: 0.6;
-}
-
 .credit-info {
     display: flex;
     flex-direction: column;
@@ -396,6 +373,35 @@ li {
     flex-shrink: 0;
 }
 
+/* ---- PERIOD SWITCHER ---- */
+.period-switcher {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    background: var(--bg);
+    padding: 4px;
+    border-radius: 10px;
+}
+
+.period-btn {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    border-radius: 7px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+.period-btn.active {
+    background: var(--input-bg);
+    color: #fff;
+}
+
 /* ---- EMPTY STATE ---- */
 .empty-state {
     text-align: center;
@@ -405,13 +411,6 @@ li {
 }
 
 .empty-state p { margin: 0; }
-
-/* ---- PAID SECTION ---- */
-.paid-section {
-    margin-top: 18px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-}
 
 /* ---- LOADING ---- */
 .loading-overlay {
@@ -507,7 +506,6 @@ li {
 }
 
 .toast.success { border-left-color: var(--accent-success); }
-
 .toast.hidden { display: none; }
 
 @keyframes slideUp {
